@@ -23,6 +23,8 @@ def test_noise_comments_are_filtered():
     assert server._informative(
         "the wfo policy is enforced orgwide, you can take few times wfh"
     )
+    assert server._informative("16 weeks now")
+    assert server._informative("4 days mandatory")
 
 
 def test_ranking_prefers_relevance_over_upvotes():

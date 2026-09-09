@@ -55,7 +55,10 @@ def _is_junk(card: dict[str, Any]) -> bool:
 
 def _informative(text: str) -> bool:
     stripped = text.strip()
-    return len(stripped) > 25 and not _NOISE.match(stripped)
+    has_duration_answer = bool(
+        re.search(r"\b\d+\s+(day|days|week|weeks|month|months|year|years)\b", stripped, re.I)
+    )
+    return (len(stripped) > 25 or has_duration_answer) and not _NOISE.match(stripped)
 
 
 def _rank_comments(
