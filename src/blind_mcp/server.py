@@ -159,18 +159,29 @@ def _keywords(text: str) -> list[str]:
 
 @lru_cache(maxsize=128)
 def _resolve(company: str) -> str:
-    """Blind company URLs are case-sensitive; try the plausible spellings."""
+    """Blind company URLs are case-sensitive; try the plausible spellings.
+
+    Multi-word names use hyphens in the Blind URL (e.g. 'Goldman Sachs' ->
+    'Goldman-Sachs').  Both spaces and hyphens are tried so callers can pass
+    either form.
+    """
     seen = []
+    variants = []
+    # Original and common case forms
     for name in (company, company.title(), company.capitalize(), company.upper()):
-        if name in seen:
+        variants.extend((name, name.replace(" ", "-")))
+    # Also try the hyphenated form of the original and title-case
+    seen_names = set()
+    for name in variants:
+        if name in seen_names:
             continue
-        seen.append(name)
+        seen_names.add(name)
         try:
             http.fetch(f"/company/{name}/posts")
             return name
         except Exception:
             continue
-    raise ValueError(f"No Blind company page found for {company!r} (tried {seen}).")
+    raise ValueError(f"No Blind company page found for {company!r} (tried {sorted(seen_names)}).")
 
 
 @mcp.tool()
