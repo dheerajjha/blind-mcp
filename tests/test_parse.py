@@ -67,3 +67,19 @@ def test_company_topics(company_html):
     assert "acme-india" in meta["topics"]
     assert meta["total_results"] == 1842
     assert meta["max_page"] > 1
+
+
+@pytest.mark.parametrize("path", ["/company/Acme/posts", "/company/Acme/posts/acme-leave"])
+def test_pagination_for_company_and_keyword_pages(path):
+    html = '<span>272</span><span class="ml-1">Results</span>' + ''.join(
+        f'<a href="{path}?page={page}">{page}</a>' for page in (1, 2, 3, 10)
+    )
+    html += '<a href="/company/Acme/posts/acme-leave">leave</a>'
+    meta = parse.parse_company_topics(html)
+    assert meta == {"topics": ["acme-leave"], "max_page": 10, "total_results": 272}
+
+
+def test_empty_listing_metadata():
+    assert parse.parse_company_topics("") == {
+        "topics": [], "max_page": 1, "total_results": None,
+    }

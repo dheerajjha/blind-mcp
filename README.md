@@ -41,9 +41,16 @@ wrong now.
 | --- | --- |
 | `company_topics(company)` | The topics Blind itself suggests for a company — for Roku: `india`, `wlb`, `culture`, `layoffs`, `interview`, `rsu`, … |
 | `company_posts(company, topic=, page=, limit=)` | Post listings, optionally scoped to one topic |
-| `find(company, keyword)` | Search a company's posts by keyword — `find("Intuit", "maternity")` returns exactly the 7 maternity threads |
+| `find(company, keyword, limit=, page=)` | Search a company's posts by keyword — `find("Intuit", "maternity")` returns exactly the 7 maternity threads |
 | `read_post(url, max_comments=)` | One thread in full: body, Blind's AI summary, comments with employers |
 | `research(company, question, max_posts=)` | One-shot: picks the topic, ranks its posts against the question, returns the top threads in full |
+
+`find` fetches one page per call. Its `total_matches` covers all matches;
+`posts` contains at most `limit` cards from the requested `page` (default 1).
+Use `max_page` to discover further pages, e.g. `find("Intuit", "leave", page=2)`.
+An empty later page is normal; stop paging. A small `limit` truncates that page,
+so increase it to see the rest of its cards. `research` still probes only the
+first page of each keyword and never walks pagination automatically.
 
 ## Install
 

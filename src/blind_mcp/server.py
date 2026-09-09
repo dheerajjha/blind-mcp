@@ -230,7 +230,9 @@ def read_post(url: str, max_comments: int = 40) -> dict[str, Any]:
 
 
 @mcp.tool()
-def find(company: str, keyword: str, limit: int = 25) -> dict[str, Any]:
+def find(
+    company: str, keyword: str, limit: int = 25, page: int = 1
+) -> dict[str, Any]:
     """Find a company's posts about one keyword.
 
     This is how you search Blind. The company topic path accepts any keyword,
@@ -239,15 +241,31 @@ def find(company: str, keyword: str, limit: int = 25) -> dict[str, Any]:
     deep. Prefer one distinctive noun ("maternity", "rto", "refresher");
     vague words like "policy" match hundreds of loosely-related posts.
 
-    Returns no posts when nothing matches, rather than falling back to the
-    generic listing, so an empty result is a real answer.
+    Fetches only the requested page (1-based); pagination is caller-driven.
+    `total_matches` counts all matches, while `posts` contains at most `limit`
+    cards from this page. `max_page` is the last page linked by Blind (defaults
+    to 1 if no pagination is present). Request page=2, etc. to see more; use a
+    larger limit to avoid truncating cards within a page. `limit=0` returns
+    metadata only. An empty later page is normal: stop paging, not a signal
+    that the keyword has no matches. An empty first page means no matches.
+    Never falls back to the generic listing.
     """
+    if type(page) is not int or page < 1:
+        raise ValueError("page must be a positive integer")
+    if type(limit) is not int or limit < 0:
+        raise ValueError("limit must be a non-negative integer")
     name = _resolve(company)
-    html = http.fetch(f"/company/{name}/posts/{_slug(name)}-{_slug(keyword)}")
+    path = f"/company/{name}/posts/{_slug(name)}-{_slug(keyword)}"
+    if page > 1:
+        path += f"?page={page}"
+    html = http.fetch(path)
+    meta = parse.parse_company_topics(html)
     return {
         "company": name,
         "keyword": keyword,
-        "total_matches": parse.parse_company_topics(html)["total_results"] or 0,
+        "page": page,
+        "max_page": meta["max_page"],
+        "total_matches": meta["total_results"] or 0,
         "posts": parse.parse_listing(html)[:limit],
     }
 

@@ -62,3 +62,110 @@ def test_referral_posts_are_dropped():
     assert server._is_junk({"title": "Laid off, 7 yoe frontend. Need referral"})
     assert not server._is_junk({"title": "Maternity leave/benefits at Intuit"})
     assert not server._is_junk({"title": "Intuit India RTO Policy"})
+
+
+# Synthetic pages exercise the actual parsers; only HTTP/company resolution
+# are replaced, so a broken keyword pagination regex fails these tests too.
+def _find_page(page, total=272, cards=3):
+    return (
+        f'<span>{total}</span><span class="ml-1">Results</span>'
+        '<a href="/company/Acme/posts/acme-leave?page=10">10</a>'
+        + ''.join(
+            f'<article data-testid="article-preview-card">'
+            f'<a href="/post/leave-{page}-{i}">'
+            f'<span class="sr-only">Leave {page}-{i}</span></a></article>'
+            for i in range(cards)
+        )
+    )
+
+
+def test_find_pages_and_positional_limit(monkeypatch):
+    calls = []
+    monkeypatch.setattr(server, "_resolve", lambda company: "Acme")
+
+    def fetch(path):
+        calls.append(path)
+        page = int(path.split("?page=")[1]) if "?page=" in path else 1
+        return _find_page(page)
+
+    monkeypatch.setattr(server.http, "fetch", fetch)
+    first = server.find("acme", "Leave")
+    second = server.find("acme", "Leave", 2, page=2)
+    last = server.find("acme", "Leave", page=10)
+    assert [r["page"] for r in (first, second, last)] == [1, 2, 10]
+    assert all(r["max_page"] == 10 and r["total_matches"] == 272
+               for r in (first, second, last))
+    assert len(first["posts"]) == 3
+    assert len(second["posts"]) == 2
+    assert first["posts"][0]["url"] != second["posts"][0]["url"]
+    assert calls == ["/company/Acme/posts/acme-leave",
+                     "/company/Acme/posts/acme-leave?page=2",
+                     "/company/Acme/posts/acme-leave?page=10"]
+
+
+def test_find_empty_page_does_not_fallback(monkeypatch):
+    monkeypatch.setattr(server, "_resolve", lambda company: "Acme")
+    calls = []
+
+    def fetch(path):
+        calls.append(path)
+        return ""
+
+    monkeypatch.setattr(server.http, "fetch", fetch)
+    for page in (1, 2, 11):
+        assert server.find("Acme", "missing", page=page) == {
+            "company": "Acme", "keyword": "missing", "page": page,
+            "max_page": 1, "total_matches": 0, "posts": [],
+        }
+    assert len(calls) == 3
+
+
+def test_find_limit_boundaries(monkeypatch):
+    monkeypatch.setattr(server, "_resolve", lambda company: "Acme")
+    monkeypatch.setattr(server.http, "fetch", lambda path: _find_page(1))
+    assert server.find("Acme", "leave", limit=0)["posts"] == []
+    assert len(server.find("Acme", "leave", limit=100)["posts"]) == 3
+
+
+def test_find_rejects_invalid_inputs_before_network(monkeypatch):
+    import pytest
+
+    def unexpected(company):
+        pytest.fail("invalid input must not resolve or fetch a company")
+
+    monkeypatch.setattr(server, "_resolve", unexpected)
+    for page in (0, -1, 1.5, "2", True, None):
+        with pytest.raises(ValueError, match="page must be a positive integer"):
+            server.find("Acme", "leave", page=page)
+    for limit in (-1, 1.5, "2", True, None):
+        with pytest.raises(ValueError, match="limit must be a non-negative integer"):
+            server.find("Acme", "leave", limit=limit)
+
+
+def test_research_does_not_walk_find_pagination(monkeypatch):
+    monkeypatch.setattr(server, "_resolve", lambda company: "Acme")
+    monkeypatch.setattr(server, "company_topics", lambda company: {"topics": []})
+    monkeypatch.setattr(server, "_probe_terms", lambda *args: ["leave", "maternity"])
+    calls = []
+
+    def fetch(path):
+        calls.append(path)
+        return _find_page(1)
+
+    monkeypatch.setattr(server.http, "fetch", fetch)
+    monkeypatch.setattr(server, "read_post", lambda url: {"url": url, "comments": []})
+    result = server.research("Acme", "maternity leave")
+    assert result["considered"] == 3
+    assert calls == ["/company/Acme/posts/acme-leave",
+                     "/company/Acme/posts/acme-maternity"]
+
+
+def test_find_mcp_schema_exposes_page():
+    import asyncio
+
+    tools = asyncio.run(server.mcp.list_tools())
+    schema = next(tool for tool in tools if tool.name == "find").input_schema
+    assert schema["properties"]["page"]["type"] == "integer"
+    assert schema["properties"]["page"]["default"] == 1
+    assert schema["properties"]["limit"]["default"] == 25
+    assert schema["required"] == ["company", "keyword"]

@@ -144,8 +144,10 @@ def parse_listing(html: str) -> list[dict[str, Any]]:
 
 def parse_company_topics(html: str) -> dict[str, Any]:
     """Blind's own suggested topics for a company, plus the page count."""
-    topics = sorted(set(re.findall(r'href="/company/[^/"]+/posts/([^"]+)"', html)))
-    pages = [int(p) for p in re.findall(r'href="/company/[^/"]+/posts\?page=(\d+)"', html)]
+    topics = sorted(set(re.findall(r'href="/company/[^/"]+/posts/([^"?]+)"', html)))
+    pages = [int(p) for p in re.findall(
+        r'href="/company/[^/"]+/posts(?:/[^/"?]+)?\?page=(\d+)"', html
+    )]
     total = re.search(r'>([\d,]+)</span><span class="ml-1">Results', html)
     return {
         "topics": topics,
