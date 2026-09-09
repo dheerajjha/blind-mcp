@@ -20,7 +20,9 @@ from mcp.server.mcpserver import MCPServer
 
 from . import http, parse
 
-mcp = MCPServer("blind")
+from . import __version__
+
+mcp = MCPServer("blind", version=__version__)
 
 _STOPWORDS = {
     "the", "a", "an", "is", "are", "do", "does", "how", "what", "and", "or",
