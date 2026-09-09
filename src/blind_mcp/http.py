@@ -90,8 +90,25 @@ def _cache_path(url: str) -> Path:
     return CACHE_DIR / host / scope / f"{digest}.html"
 
 
+def _purge_expired() -> int:
+    """Remove cache entries older than CACHE_TTL.  Returns the number removed."""
+    if not CACHE_DIR.exists():
+        return 0
+    cutoff = time.time() - CACHE_TTL
+    removed = 0
+    for path in CACHE_DIR.rglob("*.html"):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except OSError:
+            pass
+    return removed
+
+
 def fetch(path_or_url: str, *, force: bool = False) -> str:
     """GET a Blind page, honouring robots.txt, the disk cache and the throttle."""
+    _purge_expired()
     url = path_or_url if path_or_url.startswith("http") else BASE + path_or_url
 
     if not allowed(url):
