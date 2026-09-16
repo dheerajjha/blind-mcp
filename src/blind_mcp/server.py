@@ -485,6 +485,7 @@ def main() -> None:
     persistent endpoint that any number of clients can connect to.
     """
     parser = argparse.ArgumentParser(prog="blind-mcp")
+    parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument(
         "--http",
         action="store_true",

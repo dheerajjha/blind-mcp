@@ -2,7 +2,20 @@
 
 from __future__ import annotations
 
+import sys
+
+import pytest
+
+from blind_mcp import __version__
 from blind_mcp import server
+
+
+def test_cli_version(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["blind-mcp", "--version"])
+    with pytest.raises(SystemExit) as exc:
+        server.main()
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.strip() == __version__
 
 
 def test_topic_matching_handles_synonyms():
