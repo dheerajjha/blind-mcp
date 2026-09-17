@@ -102,3 +102,74 @@ def test_mixed_currency_and_mixed_unit_together(boards, monkeypatch):
     assert [r["company"] for r in result["rates"]] == ["US", "UK"]
     assert result["rates"][1]["typical_in_USD"] == {"min": 121_349, "max": 161_799}
     assert [o["company"] for o in result["other_intervals"]] == ["Contract"]
+
+
+# --- the table's period must be chosen before each employer's band ---------
+
+
+def test_an_employer_on_two_periods_contributes_the_comparable_band(boards):
+    """Fixing the unit per company, before the table's, discards real bands.
+
+    This employer posts two contract roles hourly and one salaried annually,
+    so its own modal period is hourly. Choosing there sets it aside as an
+    hourly outlier while it is holding an annual band directly comparable
+    with every other row -- and with only these two employers, the table then
+    ranked one contract rate and set aside the only other annual band there
+    was. Nobody got the comparison they asked for.
+    """
+    boards["HourlyCo"] = [
+        posting(95, 130, "hour", "Senior Engineer, Contract"),
+        posting(100, 140, "hour", "Senior Engineer, Contract II"),
+        posting(200_000, 260_000, "year", "Senior Engineer"),
+    ]
+    boards["AnnualCo"] = [posting(210_000, 270_000, "year", "Senior Engineer")]
+
+    result = server.market_rate("engineer", ["HourlyCo", "AnnualCo"], level="senior")
+
+    assert result["interval"] == "year"
+    assert sorted(r["company"] for r in result["rates"]) == ["AnnualCo", "HourlyCo"]
+    banded = {r["company"]: r["typical"] for r in result["rates"]}
+    assert banded["HourlyCo"] == {"min": 200_000, "max": 260_000}
+    assert result["other_intervals"] == []
+
+
+def test_a_band_not_chosen_is_still_reported(boards):
+    """"We picked one" must stay distinct from "there was only one"."""
+    boards["HourlyCo"] = [
+        posting(95, 130, "hour", "Senior Engineer, Contract"),
+        posting(200_000, 260_000, "year", "Senior Engineer"),
+    ]
+    boards["AnnualCo"] = [posting(210_000, 270_000, "year", "Senior Engineer")]
+
+    result = server.market_rate("engineer", ["HourlyCo", "AnnualCo"], level="senior")
+    rows = {r["company"]: r for r in result["rates"]}
+
+    assert rows["HourlyCo"]["other_intervals_present"] == ["hour"]
+    assert rows["AnnualCo"]["other_intervals_present"] == []
+
+
+def test_the_period_is_stable_when_employers_are_evenly_split(boards):
+    """One employer each way must not resolve by set ordering.
+
+    The tie breaks toward the longer period: an employer posting the same
+    title salaried and as a contract rate has published two different things,
+    and the salaried one is what the question is about. Picking the larger of
+    a set instead would change the answer between runs.
+    """
+    boards["A"] = [posting(200_000, 260_000, "year", "Senior Engineer")]
+    boards["B"] = [posting(95, 130, "hour", "Senior Engineer, Contract")]
+
+    seen = {server.market_rate("engineer", ["A", "B"], level="senior")["interval"]
+            for _ in range(5)}
+    assert seen == {"year"}
+
+
+def test_an_employer_with_nothing_on_the_table_period_is_set_aside(boards):
+    boards["A"] = [posting(210_000, 270_000, "year", "Senior Engineer")]
+    boards["B"] = [posting(200_000, 250_000, "year", "Senior Engineer")]
+    boards["C"] = [posting(90, 120, "hour", "Senior Engineer, Contract")]
+
+    result = server.market_rate("engineer", ["A", "B", "C"], level="senior")
+
+    assert [r["company"] for r in result["rates"]] == ["A", "B"]
+    assert [o["company"] for o in result["other_intervals"]] == ["C"]

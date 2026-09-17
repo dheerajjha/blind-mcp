@@ -2,6 +2,24 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.9.0 — 2026-09-17
+
+- **`market_rate` chooses the table's period before each employer's band, not
+  after.** 0.8.1 fixed the unit per company, which is the obvious single pass
+  and quietly loses comparable bands: an employer posting two contract roles
+  hourly and one salaried annually has an hourly modal period, so it was set
+  aside as an outlier while holding an annual band directly comparable with
+  every other row. With only two such employers the table ranked one contract
+  rate and discarded the only other annual band there was — both numbers
+  correctly labelled, and the comparison still the wrong one.
+- **`other_intervals_present` on each row** reports the periods an employer
+  publishes on that the table did not use, so "we chose one" stays distinct
+  from "there was only one".
+- **Ties break toward the longer period** rather than by set ordering, which
+  was not stable between runs. An employer posting the same title salaried and
+  as a contract rate has published two different things, and the salaried one
+  is what "what does this role pay" is asking about.
+
 ## 0.8.1 — 2026-09-17
 
 - **Fixed: `market_rate` merged hourly rates into annual bands and could report

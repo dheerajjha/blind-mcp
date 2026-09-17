@@ -679,7 +679,12 @@ def market_rate(
     publish nothing readable, but the employers competing for the same people
     do, and that is the band those offers are set against.
     """
-    rows, unreachable = [], []
+    # Two passes: what each employer publishes, then which period the table is
+    # in, then each employer's band in that period. The period cannot be
+    # chosen per company, because it depends on what every other company
+    # published.
+    candidates: dict[str, tuple[str | None, dict[Any, tuple[str, dict[str, Any]]]]] = {}
+    unreachable: list[dict[str, Any]] = []
     for company in companies[:12]:
         try:
             board, postings = ats.fetch_postings(company, role=role)
@@ -694,49 +699,85 @@ def market_rate(
         # same band as annual salaries does not merely widen it -- the modal
         # band can land on the hourly pair, and the tool then states a senior
         # engineer band of "95 - 130".
-        interval = _dominant_interval(hits)
-        # Exact match, with no fallback. `(interval or dominant)` would have
-        # swept postings that state no period into the dominant one, which is
-        # the silent assumption this whole guard exists to prevent. When
-        # nothing states a period, `interval` is None and the unstated
-        # postings are the ones kept -- reported as None rather than guessed.
-        priced = [
-            p for p in hits
-            if p["pay"]
-            and p["pay"]["currency"] == currency
-            and p["pay"].get("interval") == interval
-        ]
-        if not priced:
+        # A band per period this employer publishes on, rather than one band
+        # from its own modal period. Choosing here -- before the table's
+        # period is known -- locks an employer to whichever unit it happens to
+        # post most often, and an employer with two contract postings and one
+        # salaried one is then set aside as "hourly" while holding the annual
+        # band every other row is being compared on.
+        #
+        # Exact match per period, never a fallback. Sweeping postings that
+        # state no period into a stated one is the silent assumption this
+        # whole guard exists to prevent, so None is its own group.
+        per_period: dict[Any, tuple[str, dict[str, Any]]] = {}
+        for unit in {p["pay"].get("interval") for p in hits
+                     if p["pay"] and p["pay"]["currency"] == currency}:
+            at_unit = [
+                p for p in hits
+                if p["pay"]
+                and p["pay"]["currency"] == currency
+                and p["pay"].get("interval") == unit
+            ]
+            by_level = _level_breakdown(at_unit)
+            if not by_level:
+                continue
+            chosen = level if level and level in by_level else max(
+                by_level, key=lambda k: by_level[k]["postings"]
+            )
+            per_period[unit] = (chosen, by_level[chosen])
+        if not per_period:
             unreachable.append({"company": company, "reason": "no published range"})
             continue
-        by_level = _level_breakdown(priced)
-        chosen = level if level and level in by_level else max(
-            by_level, key=lambda k: by_level[k]["postings"]
-        )
-        band = by_level[chosen]
-        rows.append({
+        candidates[company] = (currency, per_period)
+
+    # A currency can be converted. A unit cannot: 200,000 per year and 130 per
+    # hour have no exchange rate between them, and ranking them in one list
+    # would state an ordering that does not exist. So rank within one unit and
+    # report the rest beside it, rather than merging or discarding them.
+    #
+    # Ties break toward the longer period, which is a preference and not a
+    # coin toss: an employer posting the same title salaried and as a contract
+    # rate has published two different things, and the salaried one is what
+    # "what does this role pay" is asking about. It is also stable, where
+    # picking the larger of a set is not and the period would silently change
+    # between runs.
+    _LONGEST_FIRST = ("year", "two_weeks", "month", "week", "day", "hour")
+    votes = [u for _, per in candidates.values() for u in per if u is not None]
+    period = min(
+        set(votes),
+        key=lambda u: (
+            -votes.count(u),
+            _LONGEST_FIRST.index(u) if u in _LONGEST_FIRST else len(_LONGEST_FIRST),
+            u,
+        ),
+    ) if votes else None
+
+    rows, other_period = [], []
+    for company, (currency, per_period) in candidates.items():
+        unit = period if period in per_period else sorted(
+            per_period, key=lambda u: (u is None, str(u))
+        )[0]
+        chosen, band = per_period[unit]
+        row = {
             "company": company,
             "level": chosen,
             "typical": band["typical"],
             "currency": currency,
             # Without this a caller cannot tell 200,000/year from 130/hour,
             # and the two sort into one list as though they were comparable.
-            "interval": interval,
+            "interval": unit,
+            # This employer publishes the same title on another period too.
+            # Saying so keeps "we chose one" distinct from "there was only one".
+            "other_intervals_present": sorted(
+                u for u in per_period if u is not None and u != unit
+            ),
             "postings": band["postings"],
             "distinct_bands": band["distinct_bands"],
             "example_titles": band["titles"][:3],
             "matched_requested_level": bool(level) and chosen == level,
-        })
-
-    # A currency can be converted. A unit cannot: 200,000 per year and 130 per
-    # hour have no exchange rate between them, and ranking them in one list
-    # would state an ordering that does not exist. So rank within one unit and
-    # report the rest beside it, rather than merging or discarding them.
-    period = _dominant(rows, "interval") if any(r.get("interval") for r in rows) else None
-    if period is None:
-        period = next((r["interval"] for r in rows if r.get("interval")), None)
-    ranked = [r for r in rows if r.get("interval") == period]
-    other_period = [r for r in rows if r.get("interval") != period]
+        }
+        (rows if unit == period else other_period).append(row)
+    ranked = rows
 
     # Sorting mixed currencies by their raw numbers ranks by exchange rate
     # rather than by pay, so convert to whichever currency most rows use.
