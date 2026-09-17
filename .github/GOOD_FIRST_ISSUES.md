@@ -13,11 +13,18 @@ don't collide. That has already happened once.
 > with work that cannot be done wastes the time of exactly the people it is
 > trying to attract.
 
+> **Maintainer invariant, because nothing in CI checks it.** The `good first
+> issue` label must mark exactly the issues under *Available now* — the label
+> is what feeds the README badge and GitHub's /contribute page, and neither
+> renders a caveat written in a title or in this file. If an issue is blocked,
+> claimed, dormant or folded into another, it goes in a section below **and**
+> loses the label. This file drifted from the labels once already.
+
 ## Available now
 
 | # | Size | What's wrong | Why it matters |
 | --- | --- | --- | --- |
-| [#18](https://github.com/dheerajjha/payband-mcp/issues/18) | S | Workday tenants are only found under the company's own name | Intuit, Dell, IBM and Sony are all on Workday and all unreachable. Mostly a **data** contribution: open a careers page, follow through to a job, read the tenant and site out of the URL. One company or twenty. |
+| [#26](https://github.com/dheerajjha/payband-mcp/issues/26) | S | Keka and Workday tenants can't be found from a company name | The adapters work and we still can't *find* an employer on them. Mostly a **data** contribution, and **no Python needed to start**: open a careers page, read the tenant out of the URL, add a row, add a test. One verified row is a real contribution. Indian employers are the most valuable rows. |
 | [#13](https://github.com/dheerajjha/payband-mcp/issues/13) | M | Most Indian-headquartered employers are unreachable | The highest-value work in the repo. Many run Darwinbox, Keka or Zoho Recruit — if one has a documented public posting API, a single adapter reaches a lot of employers at once, the way SmartRecruiters did. |
 
 ## Open, but wait
@@ -26,6 +33,7 @@ don't collide. That has already happened once.
 | --- | --- | --- |
 | [#23](https://github.com/dheerajjha/payband-mcp/issues/23) | XS | Blocked on [#19](https://github.com/dheerajjha/payband-mcp/pull/19) landing — the signature you'd pass to changes with it |
 | [#17](https://github.com/dheerajjha/payband-mcp/issues/17) | S | Claimed, with [#19](https://github.com/dheerajjha/payband-mcp/pull/19) in review |
+| [#18](https://github.com/dheerajjha/payband-mcp/issues/18) | S | Folded into [#26](https://github.com/dheerajjha/payband-mcp/issues/26) — same registry, one issue. Still open, and still the place the Workday URL shapes are written up, which is what #26 links to. Take #26 |
 
 ## Open, but currently dormant
 
