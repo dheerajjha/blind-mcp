@@ -24,8 +24,9 @@ don't collide. That has already happened once.
 
 | # | Size | What's wrong | Why it matters |
 | --- | --- | --- | --- |
-| [#26](https://github.com/dheerajjha/payband-mcp/issues/26) | S | Keka and Workday tenants can't be found from a company name | The adapters work and we still can't *find* an employer on them. Mostly a **data** contribution, and **no Python needed to start**: open a careers page, read the tenant out of the URL, add a row, add a test. One verified row is a real contribution. Indian employers are the most valuable rows. |
-| [#13](https://github.com/dheerajjha/payband-mcp/issues/13) | M | Most Indian-headquartered employers are unreachable | The highest-value work in the repo. Many run Darwinbox, Keka or Zoho Recruit — if one has a documented public posting API, a single adapter reaches a lot of employers at once, the way SmartRecruiters did. |
+| [#26](https://github.com/dheerajjha/payband-mcp/issues/26) | S | Workday tenants can't be found from a company name | Mostly a **data** contribution, and **no Python needed to start**: open a careers page, read the tenant out of the URL, add a row, add a test. One verified row is a real contribution. **Take the Workday half** — Workday is in `_BOARDS`, so your row is live on merge. The Keka half of that issue is dormant until [#27](https://github.com/dheerajjha/payband-mcp/issues/27) lands. |
+| [#27](https://github.com/dheerajjha/payband-mcp/issues/27) | S | The Keka adapter is wired to nothing, so no tool can reach a Keka board | ~15 lines mirroring `_smartrecruiters`. Not tagged `good first issue` only because it blocks one — it is well-scoped and mentored if you want it. Unblocks the Indian-employer half of the project's whole premise. |
+| [#13](https://github.com/dheerajjha/payband-mcp/issues/13) | M | Google, Meta, Amazon and Apple self-hosted sites, and no Recruitee adapter | Workday and SmartRecruiters are **done** — the old title asked for those and was wrong. What is left is the self-hosted employers and Recruitee. Google Careers is scraping, not an API, so it stays behind `selfhosted.py`. |
 
 ## Open, but wait
 
