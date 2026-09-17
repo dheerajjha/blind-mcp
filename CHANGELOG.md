@@ -2,6 +2,23 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.8.1 — 2026-09-17
+
+- **Fixed: `market_rate` merged hourly rates into annual bands and could report
+  the hourly figure as the band**
+  ([#24](https://github.com/dheerajjha/payband-mcp/issues/24)). A company
+  posting `Senior Engineer` at $200,000-260,000/year alongside
+  `Senior Engineer, Contract` at $95-130/hour was reported as a senior band of
+  **95-130**. `pay_bands` had fixed the unit as well as the currency since
+  0.3.0; `market_rate` had not.
+- Rows now carry `interval`, so a caller can see what period a number is in,
+  and companies publishing a different unit are listed under
+  `other_intervals` rather than ranked. A currency can be converted; a unit
+  cannot, so ranking across units states an ordering that does not exist.
+- A posting that states no period no longer outvotes one that does, and is
+  never swept into the dominant period. Where nothing states one, the band is
+  still reported with `interval: null` rather than withheld or guessed.
+
 ## 0.8.0 — 2026-09-17
 
 - **Keka adapter** ([#13](https://github.com/dheerajjha/payband-mcp/issues/13)),
@@ -32,7 +49,6 @@ Notable changes per release. Dates are UTC.
   everything else. **Zoho Recruit** has a robots-permitted RSS feed at
   `/jobs/Careers/rss`, but it is a per-account opt-in that was switched off on
   all six tenants sampled — unresolved rather than dead.
-
 ## 0.7.0 — 2026-09-17
 
 - **Atlassian adapter**, the first self-hosted employer

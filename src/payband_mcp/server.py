@@ -403,6 +403,19 @@ def _dominant_currency(postings: list[dict[str, Any]]) -> str | None:
     return _dominant(postings, "currency")
 
 
+def _dominant_interval(postings: list[dict[str, Any]]) -> str | None:
+    """The modal interval among postings that actually state one.
+
+    A posting that declines to state its period must not outvote one that
+    states it. Some boards publish a band with the period field set to "not
+    available", and counting those as a category of their own means the
+    better-attested postings lose the election and are then filtered out --
+    silently, because they are not missing a range, just a unit.
+    """
+    stated = [p for p in postings if p.get("pay") and p["pay"].get("interval")]
+    return _dominant(stated, "interval") if stated else None
+
+
 def _by_market(
     priced: list[dict[str, Any]], base: str | None = None
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
@@ -557,14 +570,9 @@ def pay_bands(
     ]
     # An hourly contract rate averaged into a band of annual salaries produces
     # a number that is wrong rather than merely imprecise, so the two never mix.
-    # Some sources state the period a band covers and some publish figures and
-    # decline to (Keka sends salaryPeriod 0, "Not Available"). An unstated
-    # interval is the absence of a value, not a competing one, so it must not
-    # win this vote: where it outnumbers the stated ones it would elect itself
-    # and discard the better-attested postings. Only postings that state an
-    # interval get a say in which interval this is.
-    stated = [p for p in same_currency if p["pay"]["interval"] is not None]
-    interval = _dominant(stated, "interval") if stated else None
+    # Only postings that state a period vote on what it is -- see
+    # _dominant_interval. market_rate applies the same rule.
+    interval = _dominant_interval(same_currency)
     priced = [p for p in same_currency if p["pay"]["interval"] == interval]
     # Counted rather than quietly dropped, for the reason not_checked_count
     # exists: a posting left out of the band is a fact about our reading of it.
@@ -682,7 +690,22 @@ def market_rate(
         ats.enrich_pay(hits, limit=25)
         hits = [p for p in hits if not (p["pay"] and p["pay"].get("basis") == "ote")]
         currency = _dominant_currency(hits)
-        priced = [p for p in hits if p["pay"] and p["pay"]["currency"] == currency]
+        # Fix the unit as well as the currency. An hourly contract rate in the
+        # same band as annual salaries does not merely widen it -- the modal
+        # band can land on the hourly pair, and the tool then states a senior
+        # engineer band of "95 - 130".
+        interval = _dominant_interval(hits)
+        # Exact match, with no fallback. `(interval or dominant)` would have
+        # swept postings that state no period into the dominant one, which is
+        # the silent assumption this whole guard exists to prevent. When
+        # nothing states a period, `interval` is None and the unstated
+        # postings are the ones kept -- reported as None rather than guessed.
+        priced = [
+            p for p in hits
+            if p["pay"]
+            and p["pay"]["currency"] == currency
+            and p["pay"].get("interval") == interval
+        ]
         if not priced:
             unreachable.append({"company": company, "reason": "no published range"})
             continue
@@ -696,33 +719,45 @@ def market_rate(
             "level": chosen,
             "typical": band["typical"],
             "currency": currency,
+            # Without this a caller cannot tell 200,000/year from 130/hour,
+            # and the two sort into one list as though they were comparable.
+            "interval": interval,
             "postings": band["postings"],
             "distinct_bands": band["distinct_bands"],
             "example_titles": band["titles"][:3],
             "matched_requested_level": bool(level) and chosen == level,
         })
 
+    # A currency can be converted. A unit cannot: 200,000 per year and 130 per
+    # hour have no exchange rate between them, and ranking them in one list
+    # would state an ordering that does not exist. So rank within one unit and
+    # report the rest beside it, rather than merging or discarding them.
+    period = _dominant(rows, "interval") if any(r.get("interval") for r in rows) else None
+    if period is None:
+        period = next((r["interval"] for r in rows if r.get("interval")), None)
+    ranked = [r for r in rows if r.get("interval") == period]
+    other_period = [r for r in rows if r.get("interval") != period]
+
     # Sorting mixed currencies by their raw numbers ranks by exchange rate
     # rather than by pay, so convert to whichever currency most rows use.
-    # Whichever currency most rows use. Ties are broken towards USD and then
-    # alphabetically, because picking the larger of a set is not stable
-    # between runs and the base currency would silently change.
-    present = {r["currency"] for r in rows}
+    # Ties are broken towards USD and then alphabetically, because picking the
+    # larger of a set is not stable between runs and the base currency would
+    # silently change.
+    present = {r["currency"] for r in ranked}
     base = sorted(
         present,
-        key=lambda c: (-sum(r["currency"] == c for r in rows), c != "USD", c),
+        key=lambda c: (-sum(r["currency"] == c for r in ranked), c != "USD", c),
     )[0] if present else None
-    table = fx.rates(base, ats.USER_AGENT) if base and len(
-        {r["currency"] for r in rows}
-    ) > 1 else None
-    for row in rows:
+    table = fx.rates(base, ats.USER_AGENT) if base and len(present) > 1 else None
+    for row in ranked:
         low = fx.convert(row["typical"]["min"], row["currency"], base, table) if table else None
         high = fx.convert(row["typical"]["max"], row["currency"], base, table) if table else None
         if low and high:
             row[f"typical_in_{base}"] = {"min": round(low), "max": round(high)}
         converted = row.get(f"typical_in_{base}") or row["typical"]
         row["_rank"] = (converted["min"] + converted["max"]) / 2
-    rows.sort(key=lambda r: r.pop("_rank"), reverse=True)
+    ranked.sort(key=lambda r: r.pop("_rank"), reverse=True)
+    rows = ranked
 
     mixed = sorted({r["currency"] for r in rows})
     return {
@@ -736,11 +771,22 @@ def market_rate(
             "source": "ECB daily reference rates via frankfurter.dev",
         } if table else None,
         "currencies_compared": mixed,
+        "interval": period,
+        # Not ranked with the rest: there is no conversion between an hourly
+        # rate and an annual salary, so these are reported rather than merged.
+        "other_intervals": [
+            {"company": r["company"], "level": r["level"], "interval": r["interval"],
+             "typical": r["typical"], "currency": r["currency"]}
+            for r in other_period
+        ],
         "unreachable": unreachable,
         "note": (
-            "Sorted by band midpoint, converted to a common currency where "
-            "the rows use more than one -- an unconverted ranking would order "
-            "by exchange rate rather than by pay. Rows where "
+            f"Sorted by band midpoint among companies publishing a {period or 'comparable'} "
+            "rate, converted to a common currency where the rows use more than "
+            "one -- an unconverted ranking would order by exchange rate rather "
+            "than by pay. Companies publishing a different unit are listed "
+            "under other_intervals rather than ranked, because no rate converts "
+            "an hourly figure into an annual one. Rows where "
             "matched_requested_level is false fell back to the company's "
             "largest band and may be a different rung -- read `level` before "
             "comparing them."
