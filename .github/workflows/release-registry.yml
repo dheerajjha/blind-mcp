@@ -1,0 +1,56 @@
+# Publishes server.json to the official MCP registry, which is how MCP clients
+# discover this server.
+#
+# Authenticates with GitHub Actions OIDC rather than the interactive device
+# flow. That matters for more than convenience: the registry's JWT lives five
+# minutes, so doing this by hand means logging in and publishing inside the
+# same five minutes, and every earlier attempt failed on an expired token
+# between the two steps. OIDC has no human in the loop and no token to expire
+# while someone reads the next instruction.
+#
+# The namespace io.github.dheerajjha/* is proved by the OIDC claim naming this
+# repository's owner, so there is no secret here either.
+name: release-registry
+
+on:
+  workflow_run:
+    workflows: ["release"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    # Only after PyPI succeeded: the registry validates that the package in
+    # server.json actually exists, so running these in parallel races.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --help >/dev/null
+
+      - name: server.json must be valid before we authenticate
+        run: ./mcp-publisher validate
+
+      - name: The version must match the package, as the release job checks
+        run: |
+          pkg=$(python -c "import re,pathlib; print(re.search(r'__version__ = \"([^\"]+)\"', pathlib.Path('src/payband_mcp/__init__.py').read_text()).group(1))")
+          for got in $(python -c "import json; d=json.load(open('server.json')); print(d['version'], d['packages'][0]['version'])"); do
+            if [ "$got" != "$pkg" ]; then
+              echo "::error::server.json says $got, package says $pkg"
+              exit 1
+            fi
+          done
+          echo "server.json and package agree on $pkg"
+
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish
