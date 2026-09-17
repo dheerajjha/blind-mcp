@@ -89,7 +89,21 @@ A wrong sentence in an issue costs more than a wrong line of code.
 
 **Do not advertise work dishonestly.** Issues in the disabled Blind path were
 labelled `good first issue` and `hacktoberfest`; they ship dormant and cannot
-be checked against reality. They now carry `blind-disabled` and say so.
+be checked against reality. They carry `blind-disabled` and say so in the title.
+
+**And a title is not a label.** This paragraph used to stop at "say so", which
+was half the job: #1 and #5 still carried `good first issue`, and #4 still
+carried `help wanted`, for as long as that sentence read as done. The badge and
+GitHub's /contribute page render the *label* and nothing else — not the title,
+not `blind-disabled`, not this file. On 2026-09-17 the badge advertised five
+good first issues and exactly one (#26) could be started: two were dormant, one
+was blocked on an open PR, one was the same work as #26 under a second number.
+
+So the rule is the label, not the prose: **blocked, claimed, dormant or folded
+into another issue means the discovery labels come off** (`good first issue`,
+`up-for-grabs`, `hacktoberfest`, `help wanted`), and the title says why for
+anyone who does reach the issue. `.github/GOOD_FIRST_ISSUES.md` carries the
+same invariant; nothing in CI enforces either, so it is on whoever sweeps.
 
 ## Two maintainers is worse than none
 
