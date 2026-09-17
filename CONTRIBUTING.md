@@ -39,11 +39,12 @@ has a passing test. No bikeshedding your regex.
 
 ## 1. Add a job-board adapter (an hour, and the most useful thing you can do)
 
-`ats.fetch_postings` reads Greenhouse, Ashby and Lever. Everything else —
-Google, Atlassian, Canva, most Indian employers — raises `BoardNotFound`. Each
-adapter you add is a whole category of employer the tool can suddenly answer
-for. See [#13](https://github.com/dheerajjha/payband-mcp/issues/13) for the
-candidates and the shape of the work.
+`ats.fetch_postings` reads Greenhouse, Ashby, Lever, SmartRecruiters and
+Workday. Self-hosted employers — Google, Atlassian, Canva and many Indian
+employers — still raise `BoardNotFound`. Each adapter you add is a whole
+category of employer the tool can suddenly answer for. See
+[#13](https://github.com/dheerajjha/payband-mcp/issues/13) for the candidates
+and the shape of the work.
 
 Prefer boards with a **documented public API**. If a board only yields to
 scraping, keep it clearly separate so its breakage cannot affect the API-backed

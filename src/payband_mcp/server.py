@@ -483,7 +483,8 @@ def job_openings(
 ) -> dict[str, Any]:
     """List a company's open roles, with the pay range where one is published.
 
-    Reads the company's public job-board API (Greenhouse, Ashby or Lever).
+    Reads the company's public job-board API (Greenhouse, Ashby, Lever,
+    SmartRecruiters or Workday).
     `role` filters to titles containing every word you give, so "forward
     deployed" matches "AI Engineer - FDE (Forward Deployed Engineer)".
 

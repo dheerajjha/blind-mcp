@@ -6,7 +6,7 @@ because those quirks are where every bug so far has lived.
 
 from __future__ import annotations
 
-from payband_mcp import ats
+from payband_mcp import ats, smartrecruiters
 
 
 def test_greenhouse_double_escaped_pay_element():
@@ -85,6 +85,152 @@ def test_explicit_board_rejects_unknown_provider():
     import pytest
     with pytest.raises(ValueError, match="Unknown board"):
         ats.fetch_postings("Acme", board="taleo:acme")
+
+
+def test_smartrecruiters_lists_and_enriches_from_literal_payloads(monkeypatch):
+    """List results omit pay; the detail endpoint keeps it in escaped HTML."""
+    listing = {
+        "offset": 0,
+        "limit": 100,
+        "totalFound": 1,
+        "content": [
+            {
+                "id": "744000149999889",
+                "name": "Account Executive - Mid Market",
+                "company": {"identifier": "Freshworks", "name": "Freshworks"},
+                "location": {
+                    "city": "San Mateo",
+                    "region": "CA",
+                    "country": "us",
+                    "fullLocation": "San Mateo, CA, United States",
+                },
+            }
+        ],
+    }
+    detail = {
+        "id": "744000149999889",
+        "applyUrl": (
+            "https://jobs.smartrecruiters.com/Freshworks/"
+            "744000149999889-account-executive-mid-market"
+        ),
+        "jobAd": {
+            "sections": {
+                "jobDescription": {
+                    "text": "&lt;p&gt;Build lasting customer relationships.&lt;/p&gt;"
+                },
+                "additionalInformation": {
+                    "text": (
+                        "&lt;p&gt;$100,000 - $150,000 Base Salary. "
+                        "This role is also eligible for equity.&lt;/p&gt;"
+                    )
+                },
+            }
+        },
+    }
+    calls = []
+
+    def fake_request(company, posting_id=None, **params):
+        calls.append((company, posting_id, params))
+        return detail if posting_id else listing
+
+    monkeypatch.setattr(smartrecruiters, "_request", fake_request)
+    board, postings = ats.fetch_postings(
+        "Freshworks",
+        board="smartrecruiters:Freshworks",
+        role="account executive",
+    )
+
+    assert board == "smartrecruiters:Freshworks"
+    assert postings[0] == {
+        "title": "Account Executive - Mid Market",
+        "location": "San Mateo, CA, United States",
+        "url": "https://jobs.smartrecruiters.com/Freshworks/744000149999889",
+        "pay": None,
+        "company": "Freshworks",
+        "board": "smartrecruiters",
+        "_detail": {
+            "provider": "smartrecruiters",
+            "company": "Freshworks",
+            "posting_id": "744000149999889",
+        },
+        "pay_known": False,
+    }
+
+    assert ats.enrich_pay(postings) == 1
+    assert postings[0]["pay"] == {
+        "min": 100000.0,
+        "max": 150000.0,
+        "currency": "USD",
+        "interval": "year",
+        "basis": "base",
+        "source": "posting_text",
+    }
+    assert postings[0]["pay_known"] is True
+    assert calls == [
+        ("Freshworks", None, {"limit": 100, "offset": 0, "q": "account executive"}),
+        ("Freshworks", "744000149999889", {}),
+    ]
+
+
+def test_smartrecruiters_pages_without_fetching_details(monkeypatch):
+    """Listing is bounded and never turns into one detail request per job."""
+    pages = {
+        0: {
+            "offset": 0,
+            "limit": 2,
+            "totalFound": 3,
+            "content": [
+                {"id": "1", "name": "Engineer I"},
+                {"id": "2", "name": "Engineer II"},
+            ],
+        },
+        2: {
+            "offset": 2,
+            "limit": 2,
+            "totalFound": 3,
+            "content": [{"id": "3", "name": "Engineer III"}],
+        },
+    }
+    calls = []
+
+    def fake_request(company, posting_id=None, **params):
+        calls.append((company, posting_id, params))
+        return pages[params["offset"]]
+
+    monkeypatch.setattr(smartrecruiters, "PAGE", 2)
+    monkeypatch.setattr(smartrecruiters, "_request", fake_request)
+
+    jobs = list(smartrecruiters.list_postings("Acme", "engineer", cap=10))
+
+    assert [job["id"] for job in jobs] == ["1", "2", "3"]
+    assert calls == [
+        ("Acme", None, {"limit": 2, "offset": 0, "q": "engineer"}),
+        ("Acme", None, {"limit": 2, "offset": 2, "q": "engineer"}),
+    ]
+
+
+def test_smartrecruiters_auto_discovery_survives_an_unreachable_board(monkeypatch):
+    """One provider closing a connection must not prevent later providers."""
+    posting = {"title": "Engineer", "pay": None}
+
+    def unreachable(_slug):
+        raise OSError("connection closed")
+
+    def smartrecruiters_loader(slug, role):
+        assert (slug, role) == ("freshworks", "engineer")
+        return [posting]
+
+    monkeypatch.setattr(
+        ats,
+        "_BOARDS",
+        (("greenhouse", unreachable), ("smartrecruiters", smartrecruiters_loader)),
+    )
+    monkeypatch.setattr(ats, "_CHEAP", {"greenhouse", "smartrecruiters"})
+
+    assert ats.fetch_postings("Freshworks", role="engineer") == (
+        "smartrecruiters:freshworks",
+        [posting],
+    )
 
 
 def test_workday_spec_accepts_a_pasted_careers_url():
