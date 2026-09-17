@@ -2,6 +2,22 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.11.0 — 2026-09-17
+
+- **A bare `$` is resolved against the posting's own location.** `$120,000 -
+  $150,000` on a Toronto posting now reads CAD and the same string on a Sydney
+  posting reads AUD, instead of every unmarked dollar figure being assumed USD.
+  This was the currency bug the project already knew about, still live: since
+  `pay_bands` groups by currency, a Canadian band did not merely carry the
+  wrong label, it silently joined the USD bucket and was averaged against
+  numbers it has no relationship to. Comparing unconverted currencies is one of
+  the failures this repo exists to not commit.
+- The location is only ever *read*, never inferred. A posting whose location
+  carries no signal still reports USD, which is the documented fallback — the
+  change is that a posting which does say gets believed. `on-site` is
+  deliberately not treated as a location marker, in either position, so
+  `On-site, Austin TX` stays USD rather than becoming Ontario.
+
 ## 0.10.0 — 2026-09-17
 
 - **`interval_stated` on every pay reading.** Year is the only sane default
