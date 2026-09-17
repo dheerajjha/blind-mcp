@@ -69,6 +69,21 @@ like clutter and they are not — each one is a bug that shipped.
 - **The version lives in three files** (`pyproject.toml`,
   `src/payband_mcp/__init__.py`, `server.json` twice). The release workflow
   fails loudly on a mismatch. That is deliberate.
+- **An adapter with green tests can be reachable by nothing.** `keka.py` shipped
+  in 27d93d3 under the commit title *"Reach Indian employers publishing bands on
+  Keka"*. It added the parser and 22 passing tests and touched neither `ats.py`
+  nor `server.py`, so no tool could fetch a Keka posting — and `git log -S'keka'
+  -- src/payband_mcp/ats.py` is empty for the entire history. It went unnoticed
+  for weeks and was repeated as fact in an issue and to a contributor mid-review
+  (#27). The adapter tests import the module directly, so **they cannot tell a
+  wired adapter from an orphaned one**. When you add a board, the check is:
+
+  ```bash
+  python -c "from payband_mcp import ats; print([n for n,_ in ats._BOARDS])"
+  ```
+
+  A test asserting the loader is registered costs one line. `selfhosted.py`
+  employers need the same check against `selfhosted.EMPLOYERS`.
 
 ## Reviewing
 
