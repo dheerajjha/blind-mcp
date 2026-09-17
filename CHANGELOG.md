@@ -2,6 +2,37 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.8.0 — 2026-09-17
+
+- **Keka adapter** ([#13](https://github.com/dheerajjha/payband-mcp/issues/13)),
+  reaching Indian employers for the first time. The endpoint is unauthenticated
+  JSON at `https://{tenant}.keka.com/careers/api/jobs/{portal}/active`, and it
+  answers only under the `/careers` prefix that Keka's own robots.txt permits —
+  the bare `/api/` form is a 404, so the only reachable shape is the allowed one.
+  On the board verified against, 9 of 26 postings publish an INR band.
+  India compels no disclosure and these employers publish anyway, which is a
+  sharper version of the premise than silence would have been.
+- **A published band with no stated period is no longer read as annual.** Keka's
+  `salaryPeriod` enum has `0` for *"Not Available"* — an employer who published
+  figures and declined to say what period they cover — and roughly half the
+  published bands use it. `INR 8,00,000 - 15,00,000` almost certainly is annual;
+  the posting still does not say so. `interval` is `None` in that case, and the
+  numeric fields are read rather than the pre-rendered `salaryRangeFormat`,
+  which parses correctly but carries no period at all.
+- **An unstated interval can no longer outvote a stated one.** `pay_bands` took
+  the modal interval over every posting, so on a board where most employers
+  state nothing, "unstated" won the vote and the postings carrying real evidence
+  were the ones discarded — with nothing reporting the loss. Only postings that
+  state an interval now decide which interval a band is in, and
+  `interval_unstated_count` reports what was left out.
+- **Fixed a crash**: `sorted({None, "month"})` raises, so a board carrying both
+  an unstated band and an hourly rate took `pay_bands` down outright.
+- Probed and rejected, recorded so nobody repeats it: **Darwinbox** gates its
+  job API behind request-only credentials and serves a ~900-byte shell to
+  everything else. **Zoho Recruit** has a robots-permitted RSS feed at
+  `/jobs/Careers/rss`, but it is a per-account opt-in that was switched off on
+  all six tenants sampled — unresolved rather than dead.
+
 ## 0.7.0 — 2026-09-17
 
 - **Atlassian adapter**, the first self-hosted employer
