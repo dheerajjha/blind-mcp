@@ -53,4 +53,20 @@ jobs:
           echo "server.json and package agree on $pkg"
 
       - run: ./mcp-publisher login github-oidc
-      - run: ./mcp-publisher publish
+
+      - name: Publish, treating an already-published version as done
+        run: |
+          set +e
+          out=$(./mcp-publisher publish 2>&1)
+          code=$?
+          echo "$out"
+          if [ $code -ne 0 ]; then
+            # workflow_run can fire more than once for a release, and a
+            # re-run of a green release should not go red. Any other
+            # failure is real and must still fail the job.
+            if echo "$out" | grep -q "cannot publish duplicate version"; then
+              echo "::notice::This version is already in the registry; nothing to do."
+              exit 0
+            fi
+            exit $code
+          fi
