@@ -61,6 +61,18 @@ _INTERVAL_PATTERNS = (
     ("month", re.compile(r"\b(per|a|/|each)\s*month|\bmonthly\b|\bp\.?m\.?\b|\b/\s*mo\b", re.I)),
     ("week", re.compile(r"\b(per|a|/|each)\s*week|\bweekly\b", re.I)),
     ("day", re.compile(r"\b(per|a|/|each)\s*day|\bdaily\b|\bday\s*rate\b", re.I)),
+    # Year is also the fallback, so this pattern changes no interval value --
+    # it exists so a posting that says "per year" is distinguishable from one
+    # that says nothing, which is what interval_stated reports. Listed last so
+    # every shorter period keeps priority and existing readings are untouched.
+    # Bare "annual" is deliberately not enough: it attaches to bonuses and
+    # allowances as readily as to the band.
+    ("year", re.compile(
+        r"\b(per|a|/|each)\s*(year|annum)\b|\byearly\b|\bannually\b"
+        r"|\bp\.?a\.?\b|\b/\s*yr\b"
+        r"|\bannual(?:ized|ised)?\s+(?:salary|base|compensation|pay|rate|range)\b",
+        re.I,
+    )),
 )
 
 _PLAUSIBLE = {
@@ -203,11 +215,19 @@ def _currency(match: re.Match[str], window: str) -> str:
     return ""
 
 
-def _interval(window: str) -> str:
+def _interval(window: str) -> tuple[str, bool]:
+    """The period a figure covers, and whether the posting actually said so.
+
+    Year is the only sane default for a salary band in prose, and `_plausible`
+    keeps it from swallowing an hourly rate. But a default is not a statement,
+    and a caller cannot tell them apart from the value alone -- so the second
+    element says which one it is. Sources that publish a period explicitly
+    (Keka sends one, and sends 0 for "not available") never reach the default.
+    """
     for name, pattern in _INTERVAL_PATTERNS:
         if pattern.search(window):
-            return name
-    return "year"
+            return name, True
+    return "year", False
 
 
 def _plausible(low: float, high: float, currency: str, interval: str) -> bool:
@@ -235,7 +255,7 @@ def _candidates(text: str) -> list[dict[str, Any]]:
         currency = _currency(match, window)
         if not currency:
             continue  # two bare numbers are a date range or a req id
-        interval = _interval(text[max(0, match.start() - 60) : match.end() + 60])
+        interval, stated = _interval(text[max(0, match.start() - 60) : match.end() + 60])
         if match.group("ka"):
             low *= 1000
         if match.group("kb"):
@@ -257,6 +277,7 @@ def _candidates(text: str) -> list[dict[str, Any]]:
             "max": high,
             "currency": currency,
             "interval": interval,
+            "interval_stated": stated,
             "salary_context": bool(_IS_SALARY.search(window)),
             "basis": "ote" if _ON_TARGET.search(basis_window) else "base",
             "label": " ".join(tag.group(1).split()).title() if tag else None,
@@ -290,14 +311,15 @@ def _points(text: str) -> list[dict[str, Any]]:
         currency = _currency_single(match, near)
         if not currency:
             continue
-        interval = _interval(near)
+        interval, stated = _interval(near)
         if match.group("ks"):
             value *= 1000
         if not _plausible(value, value, currency, interval):
             continue
         out.append({
             "min": value, "max": value, "currency": currency,
-            "interval": interval, "salary_context": True,
+            "interval": interval, "interval_stated": stated,
+            "salary_context": True,
             "basis": "ote" if _ON_TARGET.search(basis_window) else "base",
             "label": None, "at": match.start(),
         })
@@ -360,6 +382,8 @@ def _finish(cand: dict[str, Any], siblings: list[dict[str, Any]], source: str) -
         "max": cand["max"],
         "currency": cand["currency"],
         "interval": cand["interval"],
+        # False means we defaulted, not that the posting said "year".
+        "interval_stated": cand.get("interval_stated", False),
         "basis": cand.get("basis", "base"),
         "source": source,
     }

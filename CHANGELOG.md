@@ -2,6 +2,23 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.10.0 — 2026-09-17
+
+- **`interval_stated` on every pay reading.** Year is the only sane default
+  for a salary band in prose and `_plausible` keeps it from swallowing an
+  hourly rate — but a default is not a statement, and nothing in the output
+  said which one you were looking at. `"$120,000 - $160,000"` and
+  `"$120,000 - $160,000 per year"` both read as `year`; only the second one
+  was told to us. This is the same error as reading Keka's `salaryPeriod: 0`
+  ("not available") as annual, on the prose side of the codebase.
+- `_INTERVAL_PATTERNS` had **no year pattern at all** — year existed only as
+  the fallback, so an explicitly annual posting was indistinguishable from a
+  silent one. Added last in the tuple, so every shorter period keeps priority
+  and no existing interval value changes. Bare "annual" deliberately does not
+  count: it attaches to bonuses and allowances as readily as to the band, and
+  `$120,000 - $160,000 plus an annual bonus` still reports `interval_stated:
+  false`.
+
 ## 0.9.0 — 2026-09-17
 
 - **`market_rate` chooses the table's period before each employer's band, not

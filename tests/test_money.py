@@ -102,3 +102,25 @@ def test_a_qualifier_does_not_cross_a_clause_boundary():
 
     sentences = parse("The OTE is $180,000. Base salary is $120,000 - $140,000.")
     assert (sentences["min"], sentences["basis"]) == (120000, "base")
+
+
+def test_a_stated_period_is_distinguishable_from_a_defaulted_one():
+    """"per year" and nothing at all both come out as year. They are not the same.
+
+    Year is the only sane default for a salary band in prose, and `_plausible`
+    keeps it from swallowing an hourly rate -- but presenting a default as
+    though the posting stated it is the same error as reading Keka's "not
+    available" period as annual. The value says what we think; the flag says
+    whether anyone told us.
+    """
+    said = parse("The range for this role is $120,000 - $160,000 per year.")
+    assert (said["interval"], said["interval_stated"]) == ("year", True)
+
+    silent = parse("The range for this role is $120,000 - $160,000.")
+    assert (silent["interval"], silent["interval_stated"]) == ("year", False)
+
+
+def test_a_non_annual_period_is_always_stated():
+    """Nothing defaults to hourly, so an hourly reading was always read."""
+    hourly = parse("This contract pays $95 - $130 per hour.")
+    assert (hourly["interval"], hourly["interval_stated"]) == ("hour", True)

@@ -27,6 +27,7 @@ def test_greenhouse_double_escaped_pay_element():
         "max": 210155.0,
         "currency": "USD",
         "interval": "year",
+        "interval_stated": False,
         "basis": "base",
         "source": "posting_pay_field",
     }
@@ -162,6 +163,7 @@ def test_smartrecruiters_lists_and_enriches_from_literal_payloads(monkeypatch):
         "max": 150000.0,
         "currency": "USD",
         "interval": "year",
+        "interval_stated": False,
         "basis": "base",
         "source": "posting_text",
     }
