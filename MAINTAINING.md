@@ -53,6 +53,10 @@ like clutter and they are not — each one is a bug that shipped.
   ```bash
   gh api -X POST repos/dheerajjha/payband-mcp/actions/runs/<id>/approve
   ```
+  **Resolved here on 2026-09-17**: set to `first_time_contributors_new_to_github`
+  after re-running the audit, so only accounts new to GitHub itself need
+  approval. Returning and established contributors run CI immediately.
+
   **This is a per-repository setting, not a fact about GitHub.** A sibling
   project deliberately loosened it to `first_time_contributors_new_to_github`
   after an audit, and "fixing" it back there would re-block contributors on a
