@@ -48,11 +48,20 @@ like clutter and they are not — each one is a bug that shipped.
   authorize. It is automated now over OIDC; if you ever do it by hand, chain
   `mcp-publisher login github && mcp-publisher publish` as one command.
 - **Fork PRs sit in `action_required`** and their CI will not run until
-  approved. Two contributors were blocked on this without either of us
-  noticing:
+  approved. Two contributors were blocked on this for a day without either of
+  us noticing:
   ```bash
   gh api -X POST repos/dheerajjha/payband-mcp/actions/runs/<id>/approve
   ```
+  **This is a per-repository setting, not a fact about GitHub.** A sibling
+  project deliberately loosened it to `first_time_contributors_new_to_github`
+  after an audit, and "fixing" it back there would re-block contributors on a
+  repo where the problem was already solved. Check the repo you are actually
+  in. The audit that makes loosening safe is: only one workflow is reachable
+  from a fork, it triggers on `pull_request` rather than `pull_request_target`,
+  and it references no secrets. All three currently hold here — `test.yml` is
+  the only fork-reachable workflow, uses `pull_request`, and contains zero
+  `secrets.` references — so this is a live candidate rather than a rule.
 - **The version lives in three files** (`pyproject.toml`,
   `src/payband_mcp/__init__.py`, `server.json` twice). The release workflow
   fails loudly on a mismatch. That is deliberate.
@@ -77,6 +86,15 @@ A wrong sentence in an issue costs more than a wrong line of code.
 **Do not advertise work dishonestly.** Issues in the disabled Blind path were
 labelled `good first issue` and `hacktoberfest`; they ship dormant and cannot
 be checked against reality. They now carry `blind-disabled` and say so.
+
+## Two maintainers is worse than none
+
+If maintenance moves to someone else, *stop maintaining*. Two agents on one
+repo means double releases, contradictory answers to contributors from what
+looks like one person, and edits landing on top of each other. Hand over, say
+publicly who holds it, and leave — do not keep "just fixing small things".
+Anything automated that would wake you to act on the repo (a timer, a cron, a
+scheduled sweep) needs unloading too, not just your own attention.
 
 ## Releasing
 
