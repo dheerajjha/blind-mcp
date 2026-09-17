@@ -124,3 +124,43 @@ def test_a_non_annual_period_is_always_stated():
     """Nothing defaults to hourly, so an hourly reading was always read."""
     hourly = parse("This contract pays $95 - $130 per hour.")
     assert (hourly["interval"], hourly["interval_stated"]) == ("hour", True)
+
+
+@pytest.mark.parametrize(
+    "location,currency",
+    [
+        ("Toronto, ON", "CAD"),
+        ("Vancouver, BC", "CAD"),
+        ("Canada", "CAD"),
+        ("Sydney, Australia", "AUD"),
+        ("Singapore", "SGD"),
+    ],
+)
+def test_bare_dollar_uses_clear_posting_location(location, currency):
+    pay = parse("Salary range $120,000 - $150,000", location=location)
+    assert pay["currency"] == currency
+
+
+def test_explicit_code_beats_posting_location():
+    pay = parse("Salary range $120,000 - $150,000 USD", location="Toronto, ON")
+    assert pay["currency"] == "USD"
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "New York, NY (on-site)",
+        "San Francisco, CA - on-site",
+        "Hybrid: on-site 3 days, Denver CO",
+        "Vancouver, WA",
+    ],
+)
+def test_us_locations_with_canadian_substrings_keep_usd(location):
+    pay = parse("Salary range $120,000 - $150,000", location=location)
+    assert pay["currency"] == "USD"
+
+
+def test_ambiguous_or_missing_location_keeps_usd():
+    assert parse("Salary range $120,000 - $150,000", location="")["currency"] == "USD"
+    pay = parse("Salary range $120,000 - $150,000", location="Toronto / Sydney")
+    assert pay["currency"] == "USD"

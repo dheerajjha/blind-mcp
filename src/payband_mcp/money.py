@@ -197,7 +197,7 @@ def _to_float(raw: str) -> float | None:
         return None
 
 
-def _currency(match: re.Match[str], window: str) -> str:
+def _currency(match: re.Match[str], window: str, location: str = "") -> str:
     """Prefer an explicit code over a symbol, since "$" is four currencies."""
     for group in ("posta", "postb", "prea", "preb"):
         if match.group(group):
@@ -211,8 +211,26 @@ def _currency(match: re.Match[str], window: str) -> str:
     if nearby and match.group("syma") in ("$", None):
         return nearby.group(1).upper()
     if match.group("syma") or match.group("symb"):
-        return "USD"
+        return _dollar_currency(location)
     return ""
+
+
+def _dollar_currency(location: str) -> str:
+    """Resolve a bare dollar sign only for clear single-market locations."""
+    loc = location.strip().lower()
+    if not loc or any(sep in loc for sep in (";", " / ", " | ")):
+        return "USD"
+    hints = (
+        (
+            "CAD",
+            r"\b(?:canada|toronto|montreal|ottawa|calgary|edmonton)\b"
+            r"|,\s*(?:on|bc|qc|ab)\b",
+        ),
+        ("AUD", r"\b(?:australia|sydney|melbourne|brisbane|perth|adelaide)\b"),
+        ("SGD", r"\bsingapore\b"),
+    )
+    found = [code for code, pattern in hints if re.search(pattern, loc)]
+    return found[0] if len(found) == 1 else "USD"
 
 
 def _interval(window: str) -> tuple[str, bool]:
@@ -241,7 +259,7 @@ def _plausible(low: float, high: float, currency: str, interval: str) -> bool:
     return floor <= low <= ceiling
 
 
-def _candidates(text: str) -> list[dict[str, Any]]:
+def _candidates(text: str, location: str = "") -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for match in _RANGE.finditer(text):
         low, high = _to_float(match.group("numa")), _to_float(match.group("numb"))
@@ -252,7 +270,7 @@ def _candidates(text: str) -> list[dict[str, Any]]:
         # Tighter still, and clause-bounded: "OTE" qualifies the figure it is
         # touching, not the one in the next clause along.
         basis_window = _clause_around(text, match.start(), match.end(), 30, 30)
-        currency = _currency(match, window)
+        currency = _currency(match, window, location)
         if not currency:
             continue  # two bare numbers are a date range or a req id
         interval, stated = _interval(text[max(0, match.start() - 60) : match.end() + 60])
@@ -289,7 +307,7 @@ def _candidates(text: str) -> list[dict[str, Any]]:
 _SINGLE = re.compile(_token("s"), re.I)
 
 
-def _points(text: str) -> list[dict[str, Any]]:
+def _points(text: str, location: str = "") -> list[dict[str, Any]]:
     """Postings that name one figure rather than a range.
 
     "£50,000 base salary" is a published number, and refusing to read it
@@ -308,7 +326,7 @@ def _points(text: str) -> list[dict[str, Any]]:
         basis_window = _clause_around(text, match.start(), match.end(), 30, 30)
         if not _IS_SALARY.search(near) or _NOT_SALARY.search(near):
             continue
-        currency = _currency_single(match, near)
+        currency = _currency_single(match, near, location)
         if not currency:
             continue
         interval, stated = _interval(near)
@@ -326,7 +344,7 @@ def _points(text: str) -> list[dict[str, Any]]:
     return out
 
 
-def _currency_single(match: re.Match[str], window: str) -> str:
+def _currency_single(match: re.Match[str], window: str, location: str = "") -> str:
     for group in ("posts", "pres"):
         if match.group(group):
             return match.group(group).upper()
@@ -335,7 +353,7 @@ def _currency_single(match: re.Match[str], window: str) -> str:
         return _SYMBOL[sym]
     if sym:
         nearby = re.search(rf"\b({_CODE_RE})\b", window)
-        return nearby.group(1).upper() if nearby else "USD"
+        return nearby.group(1).upper() if nearby else _dollar_currency(location)
     return ""
 
 
@@ -345,18 +363,20 @@ def normalise(content: str | None) -> str:
     return _STRAY_SPACE.sub(r"\1\2", _html.unescape(_TAG.sub(" ", raw)))
 
 
-def parse(content: str | None, prefer: str | None = None) -> dict[str, Any] | None:
+def parse(
+    content: str | None, prefer: str | None = None, location: str = ""
+) -> dict[str, Any] | None:
     """Best published pay range in a posting, or None if it publishes none.
 
     `prefer` is a region of the posting the board has already identified as
     the pay field (Greenhouse renders one); a match there beats prose.
     """
     if prefer:
-        for cand in _candidates(normalise(prefer)):
+        for cand in _candidates(normalise(prefer), location):
             return _finish(cand, [], "posting_pay_field")
 
     text = normalise(content)
-    candidates = _candidates(text) or _points(text)
+    candidates = _candidates(text, location) or _points(text, location)
     if not candidates:
         return None
 

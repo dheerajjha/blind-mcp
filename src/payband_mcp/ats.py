@@ -54,11 +54,15 @@ def _get(url: str) -> Any:
         raise
 
 
-def _pay_from_html(content: str | None) -> dict[str, Any] | None:
+def _pay_from_html(
+    content: str | None, location: str = ""
+) -> dict[str, Any] | None:
     """Published range for a posting, in whatever currency it is published in."""
     raw = _html.unescape(content or "")
     block = _PAY_DIV.search(raw)
-    return money.parse(content, prefer=block.group(1) if block else None)
+    return money.parse(
+        content, prefer=block.group(1) if block else None, location=location
+    )
 
 
 def _posting(title, location, url, pay, company, board, detail=None) -> dict[str, Any]:
@@ -88,7 +92,9 @@ def _greenhouse(board: str) -> list[dict[str, Any]]:
             j.get("title"),
             (j.get("location") or {}).get("name"),
             j.get("absolute_url"),
-            _pay_from_html(j.get("content")),
+            _pay_from_html(
+                j.get("content"), (j.get("location") or {}).get("name") or ""
+            ),
             j.get("company_name") or board,
             "greenhouse",
         )
@@ -108,7 +114,9 @@ def _lever(board: str) -> list[dict[str, Any]]:
                 j.get("text"),
                 (j.get("categories") or {}).get("location"),
                 j.get("hostedUrl"),
-                _pay_from_html(body),
+                _pay_from_html(
+                    body, (j.get("categories") or {}).get("location") or ""
+                ),
                 board,
                 "lever",
             )
@@ -140,7 +148,10 @@ def _ashby(board: str) -> list[dict[str, Any]]:
                 j.get("title"),
                 j.get("location"),
                 j.get("jobUrl"),
-                pay or _pay_from_html(j.get("descriptionHtml")),
+                pay
+                or _pay_from_html(
+                    j.get("descriptionHtml"), j.get("location") or ""
+                ),
                 board,
                 "ashby",
             )
