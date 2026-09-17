@@ -235,3 +235,95 @@ def test_cli_version_flag(capsys):
     finally:
         sys.argv = old
     assert capsys.readouterr().out.strip() == __version__
+
+
+# --- intervals: a band whose period nobody stated ---------------------------
+#
+# Most sources state the period a range covers. Keka publishes figures and
+# sends salaryPeriod 0, "Not Available", so `interval` can be None -- which no
+# other adapter has ever produced. These cover what that does to aggregation.
+
+
+def _priced(title, low, high, interval, currency="INR"):
+    return {
+        "title": title, "location": "Chennai, India", "url": "u",
+        "company": "Acme", "board": "keka", "pay_known": True,
+        "pay": {"min": low, "max": high, "currency": currency,
+                "interval": interval, "basis": "base", "source": "structured"},
+    }
+
+
+def _bands(monkeypatch, hits):
+    from payband_mcp import ats
+
+    monkeypatch.setattr(ats, "fetch_postings", lambda c, b=None, role="": ("keka", hits))
+    monkeypatch.setattr(ats, "matching", lambda postings, role: hits)
+    monkeypatch.setattr(ats, "enrich_pay", lambda hits, limit=40: None)
+    return server.pay_bands("Acme", "engineer")
+
+
+def test_an_unstated_interval_does_not_outvote_a_stated_one(monkeypatch):
+    """Four postings that say nothing must not outrank two that say "year".
+
+    `interval` was the modal value over every posting, and None is a perfectly
+    good dict key, so on a board where most employers decline to state a period
+    None won the vote and the postings carrying real evidence were the ones
+    discarded. The better-attested data has to win.
+    """
+    out = _bands(monkeypatch, [
+        _priced("Frontend Engineer", 800_000, 1_500_000, None),
+        _priced("Backend Lead", 1_200_000, 2_000_000, None),
+        _priced("AI Engineer", 1_200_000, 1_600_000, None),
+        _priced("Field Service Engineer", 240_000, 360_000, None),
+        _priced("Tech Lead", 2_000_000, 3_500_000, "year"),
+        _priced("DevOps Engineer", 1_500_000, 2_500_000, "year"),
+    ])
+    assert out["interval"] == "year"
+    assert sum(b["postings"] for b in out["by_level"].values()) == 2
+
+
+def test_postings_left_out_for_an_unstated_interval_are_counted(monkeypatch):
+    """Dropping them silently is the failure not_checked_count exists against."""
+    out = _bands(monkeypatch, [
+        _priced("Frontend Engineer", 800_000, 1_500_000, None),
+        _priced("Backend Lead", 1_200_000, 2_000_000, None),
+        _priced("Tech Lead", 2_000_000, 3_500_000, "year"),
+    ])
+    assert out["interval_unstated_count"] == 2
+    # They published a range, so they are not silent and were not unchecked.
+    assert out["no_range_count"] == 0
+    assert out["not_checked_count"] == 0
+
+
+def test_an_unstated_interval_is_not_reported_as_another_interval(monkeypatch):
+    """None is the absence of a value, so it is not an "other interval".
+
+    It also cannot be sorted against strings: mixing the two in the set that
+    builds other_intervals_present raised TypeError and took the whole tool
+    down rather than mislabelling anything.
+    """
+    out = _bands(monkeypatch, [
+        _priced("A", 2_000_000, 3_000_000, "year"),
+        _priced("B", 2_100_000, 3_100_000, "year"),
+        _priced("C", 2_200_000, 3_200_000, "year"),
+        _priced("D", 800_000, 1_500_000, None),
+        _priced("E", 60_000, 90_000, "month"),
+    ])
+    assert out["other_intervals_present"] == ["month"]
+    assert out["interval_unstated_count"] == 1
+
+
+def test_bands_still_report_when_no_posting_states_an_interval(monkeypatch):
+    """With nothing to prefer, the figures are still real and still published.
+
+    Reporting interval None says what is known. Withholding the bands entirely
+    would throw away the only pay a whole market publishes.
+    """
+    out = _bands(monkeypatch, [
+        _priced("Frontend Engineer", 800_000, 1_500_000, None),
+        _priced("Backend Lead", 1_200_000, 2_000_000, None),
+    ])
+    assert out["interval"] is None
+    assert sum(b["postings"] for b in out["by_level"].values()) == 2
+    # Not left out of anything, so nothing to count as left out.
+    assert out["interval_unstated_count"] == 0

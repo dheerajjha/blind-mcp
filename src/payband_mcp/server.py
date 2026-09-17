@@ -557,8 +557,23 @@ def pay_bands(
     ]
     # An hourly contract rate averaged into a band of annual salaries produces
     # a number that is wrong rather than merely imprecise, so the two never mix.
-    interval = _dominant(same_currency, "interval")
+    # Some sources state the period a band covers and some publish figures and
+    # decline to (Keka sends salaryPeriod 0, "Not Available"). An unstated
+    # interval is the absence of a value, not a competing one, so it must not
+    # win this vote: where it outnumbers the stated ones it would elect itself
+    # and discard the better-attested postings. Only postings that state an
+    # interval get a say in which interval this is.
+    stated = [p for p in same_currency if p["pay"]["interval"] is not None]
+    interval = _dominant(stated, "interval") if stated else None
     priced = [p for p in same_currency if p["pay"]["interval"] == interval]
+    # Counted rather than quietly dropped, for the reason not_checked_count
+    # exists: a posting left out of the band is a fact about our reading of it.
+    # Empty when nothing states an interval, because then they are the band.
+    unstated = (
+        [p for p in same_currency if p["pay"]["interval"] is None]
+        if interval is not None
+        else []
+    )
     silent = [p for p in base_pay if not p["pay"] and p.get("pay_known", True)]
     # Boards that hide pay behind a second request are only checked up to
     # max_lookups. Counting the rest as "publishes nothing" would be a claim
@@ -568,8 +583,11 @@ def pay_bands(
         p["pay"]["currency"] for p in base_pay
         if p["pay"] and p["pay"]["currency"] != currency
     })
+    # None is excluded here as well as being counted separately: it is not an
+    # "other interval", and sorting it against strings raises outright.
     other_int = sorted({
-        p["pay"]["interval"] for p in same_currency if p["pay"]["interval"] != interval
+        p["pay"]["interval"] for p in same_currency
+        if p["pay"]["interval"] is not None and p["pay"]["interval"] != interval
     })
 
     by_level = _level_breakdown(priced)
@@ -598,6 +616,10 @@ def pay_bands(
         ],
         "no_range_count": len(silent),
         "not_checked_count": len(unchecked),
+        # Published a band, did not say what period it covers. Left out of the
+        # figures above rather than assumed annual, and counted here so that
+        # leaving them out is visible instead of silent.
+        "interval_unstated_count": len(unstated),
         "on_target_earnings_excluded": [
             {"title": p["title"], "published": p["pay"]["min"],
              "currency": p["pay"]["currency"], "url": p["url"]}
