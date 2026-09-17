@@ -1,51 +1,68 @@
 # Good first issues
 
-Everything here is real, reproduced, and small. Each issue says where the code
-is, what the fix probably looks like, and how to test it. `mentored` means ask
-questions in the thread and you'll get walked through it — that's not a
-formality, it's the point.
+Real, reproduced, and currently open. Each issue says where the code is, what
+the fix probably looks like, and how to test it. `mentored` means ask questions
+in the thread and you'll get walked through it — that's the point, not a
+formality.
 
-Comment on the issue to claim it. No need to wait for a reply to start.
+Comment on the issue to claim it and it gets assigned to you, so two people
+don't collide. That has already happened once.
 
-## Under 30 minutes (`size: XS`)
+> This list is short on purpose. It was previously eight issues, five of which
+> were already fixed and closed, and the other three unrunnable. A list padded
+> with work that cannot be done wastes the time of exactly the people it is
+> trying to attract.
 
-| # | What's wrong | Why it matters |
+## Available now
+
+| # | Size | What's wrong | Why it matters |
+| --- | --- | --- | --- |
+| [#18](https://github.com/dheerajjha/payband-mcp/issues/18) | S | Workday tenants are only found under the company's own name | Intuit, Dell, IBM and Sony are all on Workday and all unreachable. Mostly a **data** contribution: open a careers page, follow through to a job, read the tenant and site out of the URL. One company or twenty. |
+| [#13](https://github.com/dheerajjha/payband-mcp/issues/13) | M | Most Indian-headquartered employers are unreachable | The highest-value work in the repo. Many run Darwinbox, Keka or Zoho Recruit — if one has a documented public posting API, a single adapter reaches a lot of employers at once, the way SmartRecruiters did. |
+
+## Open, but wait
+
+| # | Size | Status |
 | --- | --- | --- |
-| [#1](https://github.com/dheerajjha/payband-mcp/issues/1) | `"what is the rto policy"` produces **zero** search keywords | The single most common question this server exists to answer falls back to "whatever was posted this week" |
-| [#2](https://github.com/dheerajjha/payband-mcp/issues/2) | The noise filter drops `"16 weeks now"` and `"4 days mandatory"` | Those are the *answers*. Anything under 26 characters is discarded as spam |
-| [#5](https://github.com/dheerajjha/payband-mcp/issues/5) | `read_post` truncates silently | You can't tell a 12-comment thread from a 137-comment one |
-| [#6](https://github.com/dheerajjha/payband-mcp/issues/6) | Every multi-word company fails (`Goldman Sachs`, `Morgan Stanley`) | Blind uses hyphens; we only try capitalisations |
-| [#7](https://github.com/dheerajjha/payband-mcp/issues/7) | The server reports an empty version to every client | Two files, no Blind knowledge needed at all |
+| [#23](https://github.com/dheerajjha/payband-mcp/issues/23) | XS | Blocked on [#19](https://github.com/dheerajjha/payband-mcp/pull/19) landing — the signature you'd pass to changes with it |
+| [#17](https://github.com/dheerajjha/payband-mcp/issues/17) | S | Claimed, with [#19](https://github.com/dheerajjha/payband-mcp/pull/19) in review |
 
-## About an hour (`size: S`)
+## Open, but currently dormant
 
-| # | What's wrong |
-| --- | --- |
-| [#3](https://github.com/dheerajjha/payband-mcp/issues/3) | `find` says "272 matches", returns 30, mentions nothing |
-| [#8](https://github.com/dheerajjha/payband-mcp/issues/8) | The cache never evicts — 61MB after casual use |
+[#1](https://github.com/dheerajjha/payband-mcp/issues/1),
+[#4](https://github.com/dheerajjha/payband-mcp/issues/4) and
+[#5](https://github.com/dheerajjha/payband-mcp/issues/5) are in the Blind code
+path. Blind has returned 403 to every non-browser request since around
+September 2026 ([#12](https://github.com/dheerajjha/payband-mcp/issues/12)), so
+those tools are no longer registered unless `PAYBAND_ENABLE_BLIND=1`.
 
-## An afternoon (`size: M`)
-
-| # | What's wrong |
-| --- | --- |
-| [#4](https://github.com/dheerajjha/payband-mcp/issues/4) | Ranking ignores thread age, so 2021 policy gets reported as current |
+They are still real bugs, still fixable and testable offline against the
+synthetic fixtures, and still reviewed and merged on the same terms as anything
+else. But your fix ships dormant, and you cannot check it against reality — if
+the fixture and the real page disagree, the fixture wins and neither of us finds
+out. Worth doing if the logic interests you; not if you want a change users feel
+this month.
 
 ## Not on this list?
 
-The most valuable contribution isn't any of the above — it's a **keyword gap**.
-Ask `research` a real question about a company you know, and when it returns the
-wrong threads, open a [keyword gap issue](https://github.com/dheerajjha/payband-mcp/issues/new?template=keyword_gap.md)
-with what you asked and what came back. Usually one line in `_TOPIC_ALIASES`
-fixes it, and you can send that as the same PR.
+**A board we can't reach.** If the tool says `BoardNotFound` for an employer
+you care about, that's the most useful thing you can report — especially
+outside the US, since the whole premise is markets that publish nothing. Open a
+[coverage gap issue](https://github.com/dheerajjha/payband-mcp/issues/new?template=coverage_gap.md).
+
+**A band that's wrong.** A number that looks authoritative and isn't is the
+worst failure this project has. If `pay_bands` reports something that
+contradicts what you know from the inside, that is a bug and we want it.
 
 ## Setup
 
 ```bash
 git clone https://github.com/dheerajjha/payband-mcp && cd payband-mcp
-uv sync
-uv run pytest -q     # 12 tests, all offline, ~0.5s
+uv sync --dev
+uv run pytest -q     # 94 tests, all offline, under a second
 ```
 
-Tests never touch the network. See [CONTRIBUTING.md](../CONTRIBUTING.md) for the
-two hard rules (don't commit captured Blind pages; don't weaken
-robots/cache/throttle).
+Tests never touch the network — mock at the adapter boundary. See
+[CONTRIBUTING.md](../CONTRIBUTING.md) for the hard rules (fixtures are
+generated, never captured; don't weaken robots/cache/throttle; no defeating an
+access control).

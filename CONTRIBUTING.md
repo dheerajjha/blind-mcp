@@ -50,21 +50,33 @@ Prefer boards with a **documented public API**. If a board only yields to
 scraping, keep it clearly separate so its breakage cannot affect the API-backed
 paths.
 
-## 2. Add a keyword alias (10 minutes, no HTTP knowledge needed)
+## 2. Teach the pay parser a shape it cannot read (30 minutes)
 
-`research` turns a question into keywords and probes them against Blind's
-company pages. It gets this wrong whenever a question uses different words than
-Blind does — "work life balance" had to learn it means `wlb`.
+[`money.py`](src/payband_mcp/money.py) turns posting text into a band, and
+employers write money in more ways than you would believe. It has had to learn
+`184,000 USD - 287,500 USD` (code trailing, no symbol), `65.000 - 90.000 EUR`
+(dots as thousands), `₹25,00,000` (Indian grouping), `£150, 000` (typed with a
+stray space), and `Zone A: $122,400 - $159,800` (label leading, three zones per
+posting).
 
-Two dicts in [`src/payband_mcp/server.py`](src/payband_mcp/server.py):
+If you find a published range it returns `None` for, that is a bug worth
+fixing. Add the shape to the table in
+[`tests/test_money.py`](tests/test_money.py) and make it pass.
 
-- `_TOPIC_ALIASES` — maps a Blind topic to the words people actually use.
-- `_LOW_SIGNAL` — words that are common in questions but useless as probes.
-  `maternity` is a good probe; `policy` matches hundreds of loose threads.
+**Two things matter more than reading the shape.** A figure that is not salary
+must stay refused — `£1,000 learning budget` and `we raised $50M - $80M` both
+sit near salary text in real postings. And things that are not the same must
+not merge: three geographic zones, or an OTE next to a base, are separate
+bands, not one wide one. Every serious bug this project has had was a number
+that looked authoritative and was not.
 
-Add your entry, add a line to `test_probe_terms_prefer_distinctive_words` in
-[`tests/test_server.py`](tests/test_server.py), and open the PR. Include the
-question you asked and what it returned before and after.
+> The previous version of this section asked for **keyword aliases** for the
+> `research` tool. That tool reads Blind, which has refused automated requests
+> since around September 2026 (#12), so it is no longer registered by default.
+> The work would have shipped dormant.
+
+Include the posting you found it in, so the shape can be checked against a
+real employer rather than a hypothetical.
 
 ## 3. Fix a parser (an hour)
 

@@ -273,17 +273,23 @@ commenters *and* an unrelated Glassdoor review — that's when it's worth trusti
 
 ## Contributing
 
-Small project, easy to contribute to. The cheapest useful change is a **keyword
-alias** — one dict entry plus a test — and it's the change that most improves
-answers, because `research` only finds threads whose words match yours.
+Small project, easy to contribute to. The most useful change is **a board we
+can't reach yet** — each adapter is a whole category of employer the tool can
+suddenly answer for, and two of the last three releases were built by outside
+contributors doing exactly that. Non-US employers most of all, since markets
+that publish nothing are the whole point.
+
+Next most useful: **a band that's wrong.** A number that looks authoritative and
+isn't is the worst failure this project has, and every serious bug so far has
+been one. Those get priority over new coverage.
 
 Maintainers: see [MAINTAINING.md](MAINTAINING.md).
 
-Start with [**good first issues**](https://github.com/dheerajjha/payband-mcp/blob/main/.github/GOOD_FIRST_ISSUES.md) — 5 open,
-all real and reproduced, each one saying where the code is and how to test the
-fix — then [CONTRIBUTING.md](https://github.com/dheerajjha/payband-mcp/blob/main/CONTRIBUTING.md). Issues are labelled by size (`size: XS`
+Start with [**good first issues**](https://github.com/dheerajjha/payband-mcp/blob/main/.github/GOOD_FIRST_ISSUES.md), then
+[CONTRIBUTING.md](https://github.com/dheerajjha/payband-mcp/blob/main/CONTRIBUTING.md). Issues are labelled by size (`size: XS`
 is under 30 minutes) and `mentored` means ask questions in the thread and
-you'll get walked through it. First review within 48 hours.
+you'll get walked through it. Claim one in a comment and it's assigned to you.
+First review within 48 hours — reviewed by running it, not just reading it.
 
 Two hard rules, both explained in CONTRIBUTING: **don't commit captured Blind
 pages** (fixtures are generated), and **don't weaken robots/cache/throttle** for
