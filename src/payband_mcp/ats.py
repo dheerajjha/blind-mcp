@@ -264,12 +264,22 @@ def enrich_pay(postings: list[dict[str, Any]], limit: int = 40) -> int:
 
 
 def board_slugs(company: str) -> list[str]:
-    """Plausible job-board tokens for a company name, most likely first."""
+    """Plausible job-board tokens for a company name, most likely first.
+
+    The raw name is only a candidate when it is already slug-shaped. It used
+    to be included unconditionally, so "Bosch Group" produced a candidate with
+    a space in it, which went straight into a URL and raised InvalidURL from
+    deep inside httpx instead of the BoardNotFound that tells a caller what to
+    do next. No job board has a slug with whitespace in it.
+    """
     base = company.strip().lower()
     collapsed = re.sub(r"[^a-z0-9]+", "", base)
     hyphen = re.sub(r"[^a-z0-9]+", "-", base).strip("-")
+    candidates = [collapsed, hyphen]
+    if base and re.fullmatch(r"[a-z0-9._~-]+", base):
+        candidates.append(base)
     seen: set[str] = set()
-    return [s for s in (collapsed, hyphen, base) if s and not (s in seen or seen.add(s))]
+    return [s for s in candidates if s and not (s in seen or seen.add(s))]
 
 
 def fetch_postings(

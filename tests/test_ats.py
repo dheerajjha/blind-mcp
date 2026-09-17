@@ -263,3 +263,18 @@ def test_board_not_found_explains_how_to_recover(monkeypatch):
     assert "board='greenhouse:<slug>'" in msg    # the recovery path
     assert "self-host" in msg                     # the other explanation
     assert "workday:<tenant>/<site>" in msg       # ...and the Workday one
+
+
+def test_slugs_never_contain_characters_a_url_rejects():
+    """"Bosch Group" used to yield a candidate with a space, and httpx raised
+    InvalidURL from inside the request instead of BoardNotFound."""
+    import re as _re
+
+    for name in ["Bosch Group", "Ben & Jerry's", "Foo  Bar", "AT&T", "Zoom Video"]:
+        for slug in ats.board_slugs(name):
+            assert _re.fullmatch(r"[a-z0-9._~-]+", slug), (name, slug)
+
+
+def test_slug_shaped_names_are_still_tried_verbatim():
+    assert "goldman-sachs" in ats.board_slugs("goldman-sachs")
+    assert ats.board_slugs("Roku") == ["roku"]

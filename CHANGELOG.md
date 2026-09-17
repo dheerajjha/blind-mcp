@@ -1,0 +1,68 @@
+# Changelog
+
+Notable changes per release. Dates are UTC.
+
+## 0.6.0 — 2026-09-17
+
+- **SmartRecruiters adapter** ([#20](https://github.com/dheerajjha/payband-mcp/issues/20), thanks @YaoSong808).
+  Covers the SmartRecruiters half of [#13](https://github.com/dheerajjha/payband-mcp/issues/13).
+  Listings are title-filtered before any detail is fetched, so a large board does
+  not become one request per posting, and unchecked postings stay distinct from
+  postings confirmed to publish nothing.
+  Freshworks is now the clearest demonstration the project has: 139 postings,
+  72 US and 41 India, with a published band on the US ladder and silence on the
+  identical Indian titles.
+- **`--version` flag** ([#14](https://github.com/dheerajjha/payband-mcp/issues/14),
+  thanks @HarshRajSinghania). Reuses the `__version__` behind the MCP handshake,
+  so the CLI and the protocol cannot report different builds.
+- **Fixed:** `fetch_postings("Bosch Group")` raised `InvalidURL` from inside httpx
+  instead of `BoardNotFound`, because a company name with a space became a slug
+  candidate with a space in it.
+
+## 0.5.0 — 2026-09-16
+
+- **Renamed from `blind-mcp` to `payband-mcp`.** The Blind half has been
+  unreachable since Blind began refusing automated requests
+  ([#12](https://github.com/dheerajjha/payband-mcp/issues/12)); reading published
+  pay bands is what the project does. `blind-mcp` on PyPI is now a shim that
+  installs and re-exports this package. `BLIND_MCP_*` environment variables still
+  work; `PAYBAND_*` is preferred.
+- **Fixed:** the `User-Agent` was hardcoded to `0.1.0` and had been misreporting
+  the version to every job board since the first release.
+
+## 0.4.x — 2026-09-16
+
+- Only the three working tools are registered. The five Blind-backed tools could
+  do nothing but raise, and a tool list is part of what a model reads before
+  deciding what to do. `PAYBAND_ENABLE_BLIND=1` restores them.
+- On-target earnings are no longer averaged into base-salary bands. A sales
+  role's "£67,000 Total OTE" is base plus commission and is reported separately.
+- `BoardNotFound` says what to do when an employer is genuinely unreachable:
+  compare their competitors with `market_rate`.
+
+## 0.3.x — 2026-09-16
+
+- **Workday adapter.** Tenants are discovered by reading `robots.txt`, which
+  names the public career site in its `Sitemap` line.
+- **Pay ranges are read in any currency**, not just dollars — symbols and codes,
+  prefix and suffix, regional digit grouping, and intervals, so an hourly rate is
+  never averaged into annual bands. Monzo went from 0 to 55 priced postings.
+- **Currencies are converted before markets are compared.** Side by side and
+  unconverted, GitLab's Polish band reads as paying nearly twice the US one. It
+  is about 0.48x.
+- **Fixed:** `market_rate` ranked rows by raw midpoint, which orders mixed
+  currencies by exchange rate rather than by pay.
+
+## 0.2.0 — 2026-09-16
+
+- Bands are reported **per seniority level**. One range across a whole ladder is
+  a number nobody is offered: "forward deployed" at Databricks spans
+  140,400–320,200 undivided.
+- `distinct_bands` versus `postings`, so 58 listings sharing one band read as one
+  data point rather than 58.
+- `market_rate` for comparing the same rung across employers.
+
+## 0.1.x — 2026-09-09
+
+- First release: pay bands from Greenhouse, Ashby and Lever, plus the Blind
+  research tools.
