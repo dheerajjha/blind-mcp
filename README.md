@@ -277,6 +277,8 @@ Small project, easy to contribute to. The cheapest useful change is a **keyword
 alias** — one dict entry plus a test — and it's the change that most improves
 answers, because `research` only finds threads whose words match yours.
 
+Maintainers: see [MAINTAINING.md](MAINTAINING.md).
+
 Start with [**good first issues**](https://github.com/dheerajjha/payband-mcp/blob/main/.github/GOOD_FIRST_ISSUES.md) — 5 open,
 all real and reproduced, each one saying where the code is and how to test the
 fix — then [CONTRIBUTING.md](https://github.com/dheerajjha/payband-mcp/blob/main/CONTRIBUTING.md). Issues are labelled by size (`size: XS`
