@@ -2,6 +2,22 @@
 
 Notable changes per release. Dates are UTC.
 
+## 0.7.0 — 2026-09-17
+
+- **Atlassian adapter**, the first self-hosted employer
+  ([#13](https://github.com/dheerajjha/payband-mcp/issues/13)). One request
+  returns all 287 open roles, 122 with a published range.
+- **Prefix-labelled ranges** are kept apart. Atlassian publishes three US
+  geographic zones per role as `Zone A: $122,400 - $159,800`; the label leads
+  rather than trails, so the existing detector never saw it and three zones
+  collapsed into one 1.6x range belonging to no single hire.
+- **Registry publishing moved to CI** over GitHub Actions OIDC. The registry's
+  JWT lives five minutes, which is too short to log in and publish by hand
+  reliably — four attempts failed on an expired token.
+- Probed and rejected, recorded so nobody repeats it: **amazon.jobs** serves
+  clean JSON with no pay anywhere in it, **Netflix**/Eightfold the same, and
+  **Apple** answers 401. Those ranges exist only in rendered HTML.
+
 ## 0.6.0 — 2026-09-17
 
 - **SmartRecruiters adapter** ([#20](https://github.com/dheerajjha/payband-mcp/issues/20), thanks @YaoSong808).

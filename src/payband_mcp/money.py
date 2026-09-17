@@ -111,6 +111,17 @@ _LEVEL_TAG = re.compile(
     re.I,
 )
 
+# The same idea, written the other way round. Atlassian publishes three
+# geographic tiers per US role as "Zone A: $122,400 - $159,800", and its
+# non-US roles as "Canada: CA$94,500 - CA$123,375". The label leads, so
+# _LEVEL_TAG -- which reads forwards from the figure -- never sees it, and
+# three zones collapse into one 1.6x range that belongs to no single hire.
+_PREFIX_TAG = re.compile(
+    r"(?:^|[>\s])((?:zone|tier|band|level|region)\s+[A-Z0-9]+|"
+    r"[A-Z][A-Za-z.]*(?:\s+[A-Z][A-Za-z.]*){0,2})\s*:\s*$",
+    re.I,
+)
+
 # Postings are typed by humans: "£150, 000 - £200, 000" appears verbatim on
 # Monzo. Close the gap before matching rather than letting a space end a number.
 _STRAY_SPACE = re.compile(r"(\d,)\s+(\d{3})\b")
@@ -239,6 +250,8 @@ def _candidates(text: str) -> list[dict[str, Any]]:
         if _NOT_SALARY.search(veto) and not _IS_SALARY.search(veto):
             continue
         tag = _LEVEL_TAG.search(text[match.end() : match.end() + 60])
+        if not tag:
+            tag = _PREFIX_TAG.search(text[max(0, match.start() - 40) : match.start()])
         out.append({
             "min": low,
             "max": high,

@@ -22,7 +22,7 @@ from typing import Any, Iterable
 
 import httpx
 
-from . import money, smartrecruiters, workday
+from . import money, selfhosted, smartrecruiters, workday
 from . import __version__
 
 USER_AGENT = f"payband-mcp/{__version__} (+https://github.com/dheerajjha/payband-mcp)"
@@ -295,6 +295,10 @@ def fetch_postings(
     """
     if board:
         name, _, slug = board.partition(":")
+        # A self-hosted employer is one endpoint, not a board with tenants,
+        # so it is addressed by name alone: board="atlassian".
+        if name in selfhosted.EMPLOYERS and not slug:
+            return name, selfhosted.EMPLOYERS[name](USER_AGENT)
         loader = dict(_BOARDS).get(name)
         if not loader:
             raise ValueError(
@@ -313,6 +317,19 @@ def fetch_postings(
             found = postings[0]["_detail"]
             return f"workday:{found['tenant']}/{found['site']}", postings
         return f"{name}:{slug}", postings
+
+    # Self-hosted employers first: an exact name match, one request, and no
+    # slug guessing. Only fires for a company we have written an adapter for,
+    # so it costs nothing for everyone else.
+    own = selfhosted.EMPLOYERS.get(re.sub(r"[^a-z0-9]+", "", company.strip().lower()))
+    if own:
+        try:
+            postings = own(USER_AGENT)
+            if postings:
+                return company.strip().lower(), postings
+        except (selfhosted.SelfHostedNotFound, urllib.error.URLError,
+                json.JSONDecodeError, OSError):
+            pass  # fall through to the boards rather than fail outright
 
     for name, loader in _BOARDS:
         if name not in _CHEAP:

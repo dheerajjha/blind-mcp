@@ -74,8 +74,8 @@ Without it the comparison misleads — GitLab's Polish band reads as
 paying more and is actually **0.48x**.
 
 Reads the **public job-board APIs** — Greenhouse, Ashby, Lever,
-SmartRecruiters and Workday.
-Documented, intended for machines, and stable — not scraping.
+SmartRecruiters and Workday — plus a small number of employers who run their
+own endpoint. Documented, intended for machines, and stable — not scraping.
 
 ## Tools
 
@@ -131,6 +131,7 @@ Measured, not estimated:
 | Freshworks | SmartRecruiters | 139 | on demand | USD |
 | NVIDIA | Workday | 1,693 | on demand | USD, level-labelled |
 | Cisco · Adobe · Salesforce · HPE · eBay | Workday | — | on demand | — |
+| Atlassian | self-hosted | 287 | 122 (43%) | USD 119 · CAD 3 |
 
 SmartRecruiters and Workday say **on demand** because they keep the range
 inside each posting rather than in the listing. Postings are filtered by title
@@ -148,8 +149,14 @@ SmartRecruiters company ids come from
 `careers.smartrecruiters.com/<company-id>` and are also guessed from the
 company name. Pass `board="smartrecruiters:<company-id>"` when they differ.
 
-**Not covered:** employers who self-host — Google, Meta, Amazon, Apple — and
-most Indian-headquartered companies. `BoardNotFound` explains the causes
+Atlassian self-hosts and is reached by name, through its own endpoint. Its US
+roles publish three geographic zones (`Zone A/B/C`), which are reported as
+separate bands rather than collapsed — their union spans 1.6x and is nobody's
+offer.
+
+**Not covered:** Google, Meta, Amazon and Apple, and most Indian-headquartered
+companies. Amazon and Netflix were probed and both serve clean JSON with no
+pay in it at all — their ranges exist only in rendered HTML. Apple answers 401. `BoardNotFound` explains the causes
 rather than just failing.
 
 If a company *is* on one of these boards under a token you can't guess, read
