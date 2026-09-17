@@ -735,6 +735,11 @@ def main() -> None:
     """
     parser = argparse.ArgumentParser(prog="payband-mcp")
     parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+    )
+    parser.add_argument(
         "--http",
         action="store_true",
         help="serve over streamable HTTP instead of stdio",

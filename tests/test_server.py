@@ -215,3 +215,23 @@ def test_old_env_var_names_still_work(monkeypatch):
     monkeypatch.delenv("BLIND_MCP_CACHE_TTL")
     monkeypatch.delenv("PAYBAND_CACHE_TTL")
     assert http.env("CACHE_TTL", "fallback") == "fallback"
+
+
+def test_cli_version_flag(capsys):
+    """The bug template tells reporters to run this; it used to error."""
+    import sys
+
+    from payband_mcp import __version__
+
+    old = sys.argv
+    try:
+        sys.argv = ["payband-mcp", "--version"]
+        try:
+            server.main()
+        except SystemExit as exc:
+            assert exc.code == 0
+        else:
+            raise AssertionError("expected SystemExit from --version")
+    finally:
+        sys.argv = old
+    assert capsys.readouterr().out.strip() == __version__
